@@ -6,6 +6,104 @@ let tempChart = null;
 let humidityChart = null;
 let hourlyChart = null;
 
+function initTemperatureChart(labels) {
+    const ctx = document.getElementById("tempChart").getContext("2d");
+    tempChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: "Máxima (°C)",
+                    data: labels.map(() => 0),
+                    borderColor: "#f97316",
+                    backgroundColor: "rgba(249,115,22,0.15)",
+                    fill: true,
+                    tension: 0.35
+                },
+                {
+                    label: "Mínima (°C)",
+                    data: labels.map(() => 0),
+                    borderColor: "#38bdf8",
+                    backgroundColor: "rgba(56,189,248,0.15)",
+                    fill: true,
+                    tension: 0.35
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#e2e8f0" } } },
+            scales: {
+                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+                y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } }
+            }
+        }
+    });
+}
+
+function initHumidityChart(labels) {
+    const ctx = document.getElementById("humidityChart").getContext("2d");
+    humidityChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Umidade média (%)",
+                data: labels.map(() => 0),
+                backgroundColor: "rgba(129,140,248,0.6)",
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#e2e8f0" } } },
+            scales: {
+                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+                y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" }, max: 100 }
+            }
+        }
+    });
+}
+
+function initHourlyChart() {
+    const ctx = document.getElementById("hourlyChart").getContext("2d");
+    hourlyChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Temperatura (°C)",
+                    data: [],
+                    borderColor: "#f97316",
+                    backgroundColor: "rgba(249,115,22,0.15)",
+                    fill: true,
+                    tension: 0.35,
+                    yAxisID: "y"
+                },
+                {
+                    label: "Umidade (%)",
+                    data: [],
+                    borderColor: "#818cf8",
+                    backgroundColor: "rgba(129,140,248,0.1)",
+                    tension: 0.35,
+                    yAxisID: "y1"
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: "#e2e8f0" } } },
+            scales: {
+                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+                y: { position: "left", ticks: { color: "#f97316" }, grid: { color: "#334155" } },
+                y1: { position: "right", min: 0, max: 100, ticks: { color: "#818cf8" }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
+}
+
 // Ícones do OpenWeather (ex.: "04d") -> emoji
 const ICONS = {
     "01d": "☀️", "01n": "🌙",
@@ -164,11 +262,18 @@ function groupByDay(list) {
 
     return Object.entries(byDate).map(([date, items]) => {
         const noon = items.find(i => i.dt_txt.includes("12:00")) ?? items[0];
+        // Use for loops instead of spread operators for better performance
+        let max = -Infinity, min = Infinity, sum = 0;
+        for (const i of items) {
+            if (i.main.temp_max > max) max = i.main.temp_max;
+            if (i.main.temp_min < min) min = i.main.temp_min;
+            sum += i.main.humidity;
+        }
         return {
             date,
-            max: Math.max(...items.map(i => i.main.temp_max)),
-            min: Math.min(...items.map(i => i.main.temp_min)),
-            humidity: Math.round(items.reduce((s, i) => s + i.main.humidity, 0) / items.length),
+            max,
+            min,
+            humidity: Math.round(sum / items.length),
             icon: noon.weather[0].icon,
             desc: noon.weather[0].description
         };
@@ -213,39 +318,70 @@ function renderAirQuality(data) {
     }
 
     const [label, color] = AQI_INFO[item.main.aqi] || ["Indisponível", "#64748b"];
-    const comps = POLLUTANTS.map(([key, displayName]) => `
-        <div class="air-item">
-            <div class="air-name">${displayName}</div>
-            <div class="air-val">${Math.round(item.components[key])}</div>
-        </div>`).join("");
 
-    el.innerHTML = `
-        <div class="air-card">
-            <div class="air-head">
-                <h3>🫁 Qualidade do ar</h3>
-                <span class="aqi-badge" style="background:${color}">${item.main.aqi} · ${label}</span>
-            </div>
-            <div class="air-grid">${comps}</div>
-            <div class="air-note">Concentrações em µg/m³</div>
-        </div>`;
+    const card = document.createElement("div");
+    card.className = "air-card";
+
+    const head = document.createElement("div");
+    head.className = "air-head";
+
+    const title = document.createElement("h3");
+    title.textContent = "🫁 Qualidade do ar";
+    head.appendChild(title);
+
+    const badge = document.createElement("span");
+    badge.className = "aqi-badge";
+    badge.style.background = color;
+    badge.textContent = `${item.main.aqi} · ${label}`;
+    head.appendChild(badge);
+
+    const grid = document.createElement("div");
+    grid.className = "air-grid";
+
+    for (const [key, displayName] of POLLUTANTS) {
+        const itemEl = document.createElement("div");
+        itemEl.className = "air-item";
+        itemEl.innerHTML = `
+            <div class="air-name">${displayName}</div>
+            <div class="air-val">${Math.round(item.components[key])}</div>`;
+        grid.appendChild(itemEl);
+    }
+
+    card.appendChild(head);
+    card.appendChild(grid);
+
+    const note = document.createElement("div");
+    note.className = "air-note";
+    note.textContent = "Concentrações em µg/m³";
+    card.appendChild(note);
+
+    el.innerHTML = "";
+    el.appendChild(card);
 }
 
 function renderForecast(days) {
     const names = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const container = document.getElementById("forecastCards");
+    const fragment = document.createDocumentFragment();
 
-    const html = days.map((d, i) => {
+    for (let i = 0; i < days.length; i++) {
+        const d = days[i];
         const date = new Date(d.date + "T12:00:00");
         const label = i === 0 ? "Hoje" : names[date.getDay()];
-        return `
-            <div class="forecast-card" title="${capitalize(d.desc)}">
-                <div class="day">${label}</div>
-                <div class="f-icon">${iconFor(d.icon)}</div>
-                <div class="max">${Math.round(d.max)}°</div>
-                <div class="min">${Math.round(d.min)}°</div>
-            </div>`;
-    }).join("");
 
-    document.getElementById("forecastCards").innerHTML = html;
+        const card = document.createElement("div");
+        card.className = "forecast-card";
+        card.title = capitalize(d.desc);
+        card.innerHTML = `
+            <div class="day">${label}</div>
+            <div class="f-icon">${iconFor(d.icon)}</div>
+            <div class="max">${Math.round(d.max)}°</div>
+            <div class="min">${Math.round(d.min)}°</div>`;
+        fragment.appendChild(card);
+    }
+
+    container.innerHTML = "";
+    container.appendChild(fragment);
 }
 
 function renderCharts(days) {
@@ -253,64 +389,19 @@ function renderCharts(days) {
         new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
     );
 
-    const chartDefaults = {
-        responsive: true,
-        plugins: { legend: { labels: { color: "#e2e8f0" } } },
-        scales: {
-            x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-            y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } }
-        }
-    };
+    // Initialize charts on first run if needed
+    if (!tempChart) initTemperatureChart(labels);
+    if (!humidityChart) initHumidityChart(labels);
 
-    // Temperatura (máx/mín)
-    if (tempChart) tempChart.destroy();
-    tempChart = new Chart(document.getElementById("tempChart"), {
-        type: "line",
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: "Máxima (°C)",
-                    data: days.map(d => Math.round(d.max)),
-                    borderColor: "#f97316",
-                    backgroundColor: "rgba(249,115,22,0.15)",
-                    fill: true,
-                    tension: 0.35
-                },
-                {
-                    label: "Mínima (°C)",
-                    data: days.map(d => Math.round(d.min)),
-                    borderColor: "#38bdf8",
-                    backgroundColor: "rgba(56,189,248,0.15)",
-                    fill: true,
-                    tension: 0.35
-                }
-            ]
-        },
-        options: chartDefaults
-    });
+    // Update chart data instead of recreating
+    tempChart.data.labels = labels;
+    tempChart.data.datasets[0].data = days.map(d => Math.round(d.max));
+    tempChart.data.datasets[1].data = days.map(d => Math.round(d.min));
+    tempChart.update();
 
-    // Umidade média por dia
-    if (humidityChart) humidityChart.destroy();
-    humidityChart = new Chart(document.getElementById("humidityChart"), {
-        type: "bar",
-        data: {
-            labels,
-            datasets: [{
-                label: "Umidade média (%)",
-                data: days.map(d => d.humidity),
-                backgroundColor: "rgba(129,140,248,0.6)",
-                borderRadius: 6
-            }]
-        },
-        options: {
-            ...chartDefaults,
-            scales: {
-                ...chartDefaults.scales,
-                y: { ...chartDefaults.scales.y, max: 100 }
-            }
-        }
-    });
+    humidityChart.data.labels = labels;
+    humidityChart.data.datasets[0].data = days.map(d => d.humidity);
+    humidityChart.update();
 }
 
 // Gráfico de 3 em 3 horas (próximas 24h)
@@ -318,41 +409,14 @@ function renderHourlyChart(list) {
     const items = list.slice(0, 8);
     const labels = items.map(i => formatTime(i.dt));
 
-    if (hourlyChart) hourlyChart.destroy();
-    hourlyChart = new Chart(document.getElementById("hourlyChart"), {
-        type: "line",
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: "Temperatura (°C)",
-                    data: items.map(i => Math.round(i.main.temp)),
-                    borderColor: "#f97316",
-                    backgroundColor: "rgba(249,115,22,0.15)",
-                    fill: true,
-                    tension: 0.35,
-                    yAxisID: "y"
-                },
-                {
-                    label: "Umidade (%)",
-                    data: items.map(i => i.main.humidity),
-                    borderColor: "#818cf8",
-                    backgroundColor: "rgba(129,140,248,0.1)",
-                    tension: 0.35,
-                    yAxisID: "y1"
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: "#e2e8f0" } } },
-            scales: {
-                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-                y: { position: "left", ticks: { color: "#f97316" }, grid: { color: "#334155" } },
-                y1: { position: "right", min: 0, max: 100, ticks: { color: "#818cf8" }, grid: { drawOnChartArea: false } }
-            }
-        }
-    });
+    // Initialize on first run if needed
+    if (!hourlyChart) initHourlyChart();
+
+    // Update chart data instead of recreating
+    hourlyChart.data.labels = labels;
+    hourlyChart.data.datasets[0].data = items.map(i => Math.round(i.main.temp));
+    hourlyChart.data.datasets[1].data = items.map(i => i.main.humidity);
+    hourlyChart.update();
 }
 
 // Buscar com a tecla Enter

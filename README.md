@@ -47,17 +47,42 @@ const API_KEY = "abc123...";
    winget install wasmer
    ```
 
-2. Rodar o deploy:
+2. Faça login noWasmer:
 
    ```powershell
-   wasmer app deploy --dir public --owner carlos-claro2025 --non-interactive
+   wasmer login
    ```
 
-3. Acesse o app em producao:
+3. Execute o deploy:
+
+   ```powershell
+   wasmer app deploy --dir . --owner carlos-claro2025 --non-interactive
+   ```
+
+4. Acesse o app em producao:
 
    ```
    https://painel-meteorologico.wasmer.app/
    ```
+
+## Otimizacoes de Performance
+
+Este projeto inclui as seguintes melhorias de performance:
+
+- **Charts otimizados**: As instancias Chart.js são inicializadas uma vez e atualizadas com novos dados, ao invés de serem destruídas e recriadas em cada carregamento.
+- **DOM batching**: Usa `DocumentFragment` para inserções em lote, reduzindo reflow/repaint.
+- **Processamento eficiente**: Loops explícitos em vez de operadores spread para melhor performance.
+
+Para testar localmente com hot-reload:
+
+```powershell
+cd public
+python -m http.server 8080
+```
+
+## Seguranca
+
+> **ATENÇÃO**: Nunca comite chaves de API em arquivos públicos. O arquivo `config.js` contém apenas um placeholder para segurança.
 
 ## Estrutura do Projeto
 
