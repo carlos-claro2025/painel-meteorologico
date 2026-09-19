@@ -1,21 +1,81 @@
 /* ===== Painel Meteorológico (API OpenWeather) ===== */
 
 const API_BASE = "https://api.openweathermap.org/data/2.5";
+const REQUEST_TIMEOUT_MS = 10000;
 
 let tempChart = null;
 let humidityChart = null;
 let hourlyChart = null;
 
-function initTemperatureChart(labels) {
-    const ctx = document.getElementById("tempChart").getContext("2d");
-    tempChart = new Chart(ctx, {
+// Controle de busca: só a requisição mais recente pode escrever na tela
+let activeController = null;
+let searchSeq = 0;
+
+function beginSearch() {
+    if (activeController) activeController.abort();
+
+    const controller = new AbortController();
+    activeController = controller;
+    const id = ++searchSeq;
+
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    return { id, signal: controller.signal, end: () => clearTimeout(timer) };
+}
+
+function isStale(id) {
+    return id !== searchSeq;
+}
+
+function setBusy(busy) {
+    document.getElementById("searchBtn").disabled = busy;
+    document.getElementById("geoBtn").disabled = busy;
+}
+
+function reportFailure(err, search) {
+    if (isStale(search.id)) return; // uma busca mais nova já assumiu a tela
+    if (err.name === "AbortError") {
+        showError("Tempo esgotado ao consultar o serviço. Tente novamente.");
+        return;
+    }
+    showError(err.message || "Erro inesperado. Tente novamente.");
+}
+
+/* ===== Gráficos ===== */
+
+const ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+};
+
+// Escapa texto vindo da API/usuário antes de entrar em innerHTML
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ESCAPES[c]);
+}
+
+function chartOptions(extraScales) {
+    return {
+        responsive: true,
+        plugins: { legend: { labels: { color: "#e2e8f0" } } },
+        scales: {
+            x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+            y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
+            ...extraScales
+        }
+    };
+}
+
+function tempChartConfig(labels, maxData, minData) {
+    return {
         type: "line",
         data: {
             labels,
             datasets: [
                 {
                     label: "Máxima (°C)",
-                    data: labels.map(() => 0),
+                    data: maxData,
                     borderColor: "#f97316",
                     backgroundColor: "rgba(249,115,22,0.15)",
                     fill: true,
@@ -23,7 +83,7 @@ function initTemperatureChart(labels) {
                 },
                 {
                     label: "Mínima (°C)",
-                    data: labels.map(() => 0),
+                    data: minData,
                     borderColor: "#38bdf8",
                     backgroundColor: "rgba(56,189,248,0.15)",
                     fill: true,
@@ -31,51 +91,37 @@ function initTemperatureChart(labels) {
                 }
             ]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: "#e2e8f0" } } },
-            scales: {
-                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-                y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } }
-            }
-        }
-    });
+        options: chartOptions()
+    };
 }
 
-function initHumidityChart(labels) {
-    const ctx = document.getElementById("humidityChart").getContext("2d");
-    humidityChart = new Chart(ctx, {
+function humidityChartConfig(labels, data) {
+    return {
         type: "bar",
         data: {
             labels,
             datasets: [{
                 label: "Umidade média (%)",
-                data: labels.map(() => 0),
+                data,
                 backgroundColor: "rgba(129,140,248,0.6)",
                 borderRadius: 6
             }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: "#e2e8f0" } } },
-            scales: {
-                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-                y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" }, max: 100 }
-            }
-        }
-    });
+        options: chartOptions({
+            y: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" }, max: 100 }
+        })
+    };
 }
 
-function initHourlyChart() {
-    const ctx = document.getElementById("hourlyChart").getContext("2d");
-    hourlyChart = new Chart(ctx, {
+function hourlyChartConfig(labels, tempData, humidityData) {
+    return {
         type: "line",
         data: {
-            labels: [],
+            labels,
             datasets: [
                 {
                     label: "Temperatura (°C)",
-                    data: [],
+                    data: tempData,
                     borderColor: "#f97316",
                     backgroundColor: "rgba(249,115,22,0.15)",
                     fill: true,
@@ -84,7 +130,7 @@ function initHourlyChart() {
                 },
                 {
                     label: "Umidade (%)",
-                    data: [],
+                    data: humidityData,
                     borderColor: "#818cf8",
                     backgroundColor: "rgba(129,140,248,0.1)",
                     tension: 0.35,
@@ -92,16 +138,25 @@ function initHourlyChart() {
                 }
             ]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { labels: { color: "#e2e8f0" } } },
-            scales: {
-                x: { ticks: { color: "#94a3b8" }, grid: { color: "#334155" } },
-                y: { position: "left", ticks: { color: "#f97316" }, grid: { color: "#334155" } },
-                y1: { position: "right", min: 0, max: 100, ticks: { color: "#818cf8" }, grid: { drawOnChartArea: false } }
-            }
-        }
+        options: chartOptions({
+            y: { position: "left", ticks: { color: "#f97316" }, grid: { color: "#334155" } },
+            y1: { position: "right", min: 0, max: 100, ticks: { color: "#818cf8" }, grid: { drawOnChartArea: false } }
+        })
+    };
+}
+
+// Cria o gráfico na primeira vez; depois só troca os dados (sem destroy/recreate)
+function drawChart(chart, canvasId, config) {
+    if (!chart) {
+        return new Chart(document.getElementById(canvasId).getContext("2d"), config);
+    }
+
+    chart.data.labels = config.data.labels;
+    config.data.datasets.forEach((dataset, i) => {
+        chart.data.datasets[i].data = dataset.data;
     });
+    chart.update();
+    return chart;
 }
 
 // Ícones do OpenWeather (ex.: "04d") -> emoji
@@ -145,7 +200,7 @@ function capitalize(s) {
 
 function showError(msg) {
     document.getElementById("result").innerHTML =
-        `<div class="error">⚠️ ${msg}</div>`;
+        `<div class="error">⚠️ ${escapeHtml(msg)}</div>`;
     document.getElementById("airQuality").innerHTML = "";
 }
 
@@ -157,8 +212,8 @@ function checkKey() {
     return true;
 }
 
-async function fetchJson(url) {
-    const res = await fetch(url);
+async function fetchJson(url, signal) {
+    const res = await fetch(url, { signal });
     if (res.status === 401) throw new Error("Chave da API inválida. Verifique js/config.js");
     if (res.status === 429) throw new Error("Limite de requisições atingido. Aguarde um minuto.");
     if (!res.ok) throw new Error("Falha ao consultar o clima.");
@@ -175,21 +230,27 @@ async function fetchWeather() {
         return;
     }
 
+    const search = beginSearch();
+    setBusy(true);
     document.getElementById("result").innerHTML =
         '<div class="loading">⏳ Consultando...</div>';
 
     try {
         const geo = await fetchJson(
-            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`
+            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${API_KEY}`,
+            search.signal
         );
         if (!geo.length) {
-            showError(`Cidade "${city}" não encontrada.`);
+            if (!isStale(search.id)) showError(`Cidade "${city}" não encontrada.`);
             return;
         }
         const { lat, lon, name, country } = geo[0];
-        await loadWeather(lat, lon, name, country);
+        await loadWeather(lat, lon, name, country, search);
     } catch (err) {
-        showError(err.message || "Erro inesperado. Tente novamente.");
+        reportFailure(err, search);
+    } finally {
+        search.end();
+        if (!isStale(search.id)) setBusy(false);
     }
 }
 
@@ -208,21 +269,32 @@ function useMyLocation() {
     navigator.geolocation.getCurrentPosition(
         async ({ coords }) => {
             const { latitude, longitude } = coords;
+            const search = beginSearch();
+            setBusy(true);
+
             let name = "Minha localização";
             let country = "";
 
-            // Geocodificação reversa (BigDataCloud, gratuito, sem chave)
             try {
-                const rg = await fetchJson(
-                    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`
-                );
-                name = rg.city || rg.locality || name;
-                country = rg.countryName || "";
-            } catch {
-                // segue com nome genérico
-            }
+                // Geocodificação reversa (BigDataCloud, gratuito, sem chave)
+                try {
+                    const rg = await fetchJson(
+                        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=pt`,
+                        search.signal
+                    );
+                    name = rg.city || rg.locality || name;
+                    country = rg.countryName || "";
+                } catch {
+                    // segue com nome genérico
+                }
 
-            await loadWeather(latitude, longitude, name, country);
+                await loadWeather(latitude, longitude, name, country, search);
+            } catch (err) {
+                reportFailure(err, search);
+            } finally {
+                search.end();
+                if (!isStale(search.id)) setBusy(false);
+            }
         },
         () => showError("Não foi possível obter sua localização. Permita o acesso e tente de novo."),
         { timeout: 10000 }
@@ -230,16 +302,18 @@ function useMyLocation() {
 }
 
 // Carrega todos os dados a partir de coordenadas
-async function loadWeather(lat, lon, name, country) {
+async function loadWeather(lat, lon, name, country, search) {
     document.getElementById("result").innerHTML =
         '<div class="loading">⏳ Consultando...</div>';
 
     try {
         const [current, forecast, pollution] = await Promise.all([
-            fetchJson(`${API_BASE}/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${API_KEY}`),
-            fetchJson(`${API_BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${API_KEY}`),
-            fetchJson(`${API_BASE}/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`).catch(() => null)
+            fetchJson(`${API_BASE}/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${API_KEY}`, search.signal),
+            fetchJson(`${API_BASE}/forecast?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${API_KEY}`, search.signal),
+            fetchJson(`${API_BASE}/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`, search.signal).catch(() => null)
         ]);
+
+        if (isStale(search.id)) return; // resposta tardia de uma busca já substituída
 
         renderCurrent(current, name, country);
         const days = groupByDay(forecast.list);
@@ -248,7 +322,7 @@ async function loadWeather(lat, lon, name, country) {
         renderHourlyChart(forecast.list);
         renderAirQuality(pollution);
     } catch (err) {
-        showError(err.message || "Erro inesperado. Tente novamente.");
+        reportFailure(err, search);
     }
 }
 
@@ -294,8 +368,8 @@ function renderCurrent(data, name, country) {
     document.getElementById("result").innerHTML = `
         <div class="current-card">
             <div>
-                <div class="city">${local}</div>
-                <div class="desc">${capitalize(w.description)}</div>
+                <div class="city">${escapeHtml(local)}</div>
+                <div class="desc">${escapeHtml(capitalize(w.description))}</div>
             </div>
             <div class="temp">${Math.round(data.main.temp)}°C</div>
             <div class="icon">${iconFor(w.icon)}</div>
@@ -389,19 +463,10 @@ function renderCharts(days) {
         new Date(d.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
     );
 
-    // Initialize charts on first run if needed
-    if (!tempChart) initTemperatureChart(labels);
-    if (!humidityChart) initHumidityChart(labels);
-
-    // Update chart data instead of recreating
-    tempChart.data.labels = labels;
-    tempChart.data.datasets[0].data = days.map(d => Math.round(d.max));
-    tempChart.data.datasets[1].data = days.map(d => Math.round(d.min));
-    tempChart.update();
-
-    humidityChart.data.labels = labels;
-    humidityChart.data.datasets[0].data = days.map(d => d.humidity);
-    humidityChart.update();
+    tempChart = drawChart(tempChart, "tempChart",
+        tempChartConfig(labels, days.map(d => Math.round(d.max)), days.map(d => Math.round(d.min))));
+    humidityChart = drawChart(humidityChart, "humidityChart",
+        humidityChartConfig(labels, days.map(d => d.humidity)));
 }
 
 // Gráfico de 3 em 3 horas (próximas 24h)
@@ -409,14 +474,10 @@ function renderHourlyChart(list) {
     const items = list.slice(0, 8);
     const labels = items.map(i => formatTime(i.dt));
 
-    // Initialize on first run if needed
-    if (!hourlyChart) initHourlyChart();
-
-    // Update chart data instead of recreating
-    hourlyChart.data.labels = labels;
-    hourlyChart.data.datasets[0].data = items.map(i => Math.round(i.main.temp));
-    hourlyChart.data.datasets[1].data = items.map(i => i.main.humidity);
-    hourlyChart.update();
+    hourlyChart = drawChart(hourlyChart, "hourlyChart",
+        hourlyChartConfig(labels,
+            items.map(i => Math.round(i.main.temp)),
+            items.map(i => i.main.humidity)));
 }
 
 // Buscar com a tecla Enter
