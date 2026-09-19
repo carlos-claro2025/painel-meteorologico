@@ -1,0 +1,16 @@
+# Filas e arquivos temporários do Windows
+Thumbs.db
+*.log
+
+# Arquivos de npm
+node_modules/
+
+# Arquivos de consulta de API (chaves, informação sensível)
+.env
+*.env
+config.local.js
+
+# Editor
+.vscode/
+.idea/
+.DS_Store

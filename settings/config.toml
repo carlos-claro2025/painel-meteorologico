@@ -1,0 +1,8 @@
+[general]
+host = "::"
+port = 8080
+root = "/public"
+log-level = "error"
+cache-control-headers = true
+compression = true
+directory-listing = false

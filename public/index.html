@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Meteorológico</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <header>
+            <h1>🌤️ Painel Meteorológico</h1>
+            <p>Clima atual e previsão dos próximos dias</p>
+        </header>
+
+        <section class="search-box">
+            <input
+                type="text"
+                id="cityInput"
+                placeholder="Digite uma cidade (Ex: São Paulo)"
+                autocomplete="off">
+
+            <button onclick="fetchWeather()">
+                Consultar
+            </button>
+
+            <button id="geoBtn" class="secondary" onclick="useMyLocation()" title="Usar minha localização">
+                📍
+            </button>
+
+        </section>
+
+        <section id="result"></section>
+
+        <section id="airQuality"></section>
+
+        <section id="forecastCards"></section>
+
+        <section class="charts">
+            <div class="chart-card">
+                <h3>📈 Temperatura</h3>
+                <canvas id="tempChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3>💧 Umidade</h3>
+                <canvas id="humidityChart"></canvas>
+            </div>
+
+            <div class="chart-card chart-wide">
+                <h3>⏱️ Próximas 24 horas</h3>
+                <canvas id="hourlyChart"></canvas>
+            </div>
+
+        </section>
+
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+
+</html>

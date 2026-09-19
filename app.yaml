@@ -1,0 +1,5 @@
+kind: wasmer.io/App.v0
+name: painel-meteorologico
+package: .
+owner: carlosklaro
+app_id: da_R4qIGtmU96oe

@@ -1,0 +1,302 @@
+/* ===== Painel Meteorológico ===== */
+:root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --card-soft: #273549;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+    --danger: #f87171;
+    --radius: 16px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+
+/* ===== Header ===== */
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.2rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+header p {
+    color: var(--muted);
+    margin-top: 0.4rem;
+}
+
+/* ===== Busca ===== */
+.search-box {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 2rem;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 0.85rem 1.1rem;
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-box input:focus {
+    border-color: var(--accent);
+}
+
+.search-box button {
+    padding: 0.85rem 1.6rem;
+    border: none;
+    border-radius: var(--radius);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #0b1120;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.2s;
+}
+
+.search-box button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* ===== Clima atual ===== */
+.current-card {
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    padding: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.current-card .city {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.current-card .desc {
+    color: var(--muted);
+    margin-top: 0.2rem;
+}
+
+.current-card .temp {
+    font-size: 3rem;
+    font-weight: 800;
+}
+
+.current-card .icon {
+    font-size: 3.4rem;
+}
+
+.current-details {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    width: 100%;
+    border-top: 1px solid #334155;
+    padding-top: 1rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.current-details strong {
+    color: var(--text);
+}
+
+/* ===== Previsão (cards) ===== */
+#forecastCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 2rem;
+}
+
+.forecast-card {
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    padding: 1rem 0.6rem;
+    text-align: center;
+    transition: transform 0.15s, border-color 0.2s;
+}
+
+.forecast-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+}
+
+.forecast-card .day {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.forecast-card .f-icon {
+    font-size: 1.8rem;
+    margin: 0.4rem 0;
+}
+
+.forecast-card .max {
+    font-weight: 700;
+}
+
+.forecast-card .min {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+/* ===== Gráficos ===== */
+.charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.chart-card {
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    padding: 1.2rem;
+}
+
+.chart-card h3 {
+    margin-bottom: 0.8rem;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+/* ===== Estados ===== */
+.error {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.loading {
+    text-align: center;
+    color: var(--muted);
+    padding: 1rem;
+}
+
+/* ===== Botão secundário (localização) ===== */
+.search-box button.secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid #334155;
+    padding: 0.85rem 1.1rem;
+    font-size: 1.15rem;
+}
+
+.search-box button.secondary:hover {
+    border-color: var(--accent);
+}
+
+/* ===== Qualidade do ar ===== */
+.air-card {
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+.air-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.9rem;
+}
+
+.air-head h3 {
+    font-size: 1rem;
+}
+
+.aqi-badge {
+    padding: 0.25rem 0.8rem;
+    border-radius: 999px;
+    color: #0b1120;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.air-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.6rem;
+}
+
+.air-item {
+    background: var(--card-soft);
+    border-radius: 10px;
+    padding: 0.6rem;
+    text-align: center;
+}
+
+.air-name {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.air-val {
+    font-weight: 700;
+    margin-top: 0.2rem;
+}
+
+.air-note {
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 0.7rem;
+    text-align: right;
+}
+
+/* ===== Gráfico largo (24h) ===== */
+.chart-wide {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+    .search-box {
+        flex-direction: column;
+    }
+
+    header h1 {
+        font-size: 1.6rem;
+    }
+}
