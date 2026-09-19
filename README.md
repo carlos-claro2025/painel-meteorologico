@@ -56,8 +56,11 @@ const API_KEY = "abc123...";
 3. Execute o deploy:
 
    ```powershell
-   wasmer app deploy --dir . --owner carlos-claro2025 --non-interactive
+   wasmer app deploy --dir . --owner carlosklaro --non-interactive
    ```
+
+   > O app pertence ao namespace `carlosklaro` no Wasmer (conta diferente da do GitHub).
+   > Para deployar sem a flag `--owner`, o `app.yaml` já aponta para esse owner.
 
 4. Acesse o app em producao:
 
